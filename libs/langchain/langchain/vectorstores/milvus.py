@@ -827,8 +827,11 @@ class Milvus(VectorStore):
         vector_db.add_texts(texts=texts, metadatas=metadatas)
         return vector_db
 
-    def get_ids(self, expr: str = "", **kwargs: Any) -> List[int] | None:
-        """Get ids (primary keys) with expression
+    def get_ids(self,
+                expr: str = None,
+                **kwargs: Any
+        ) -> List[int] | None:
+        """ Get ids (primary keys) with expression
 
         Args:
             expr: Expression - E.g: "id in [1, 2]", or "title LIKE 'Abc%'"
@@ -840,22 +843,30 @@ class Milvus(VectorStore):
         from pymilvus import MilvusException
 
         if self.col is None:
-            logger.debug("No existing collection to get ids.")
-            return None
+            logger.debug("No existing collection to get pk.")
+            return False
 
         try:
-            query_result = self.col.query(expr=expr, output_fields=["pk"], **kwargs)
+            query_result = self.col.query(
+                    expr=expr,
+                    output_fields=["pk"]
+                )
         except MilvusException as exc:
-            logger.error("Failed to get ids: %s error: %s", self.collection_name, exc)
+            logger.error(
+                "Failed to get ids: %s error: %s", self.collection_name, exc
+            )
             raise exc
         ids = [item.get("pk") for item in query_result]
         return ids
 
-    def delete(self, ids: Optional[List[str]] = None, **kwargs: Any) -> bool | None:
+    def delete(self,
+               ids: Optional[List[str]] = None,
+               **kwargs: Any
+        ) -> bool | None:
         """Delete entities from the vectorstore.
 
         Args:
-            ids: List of IDs to update - Let's call get_ids to get list of
+            pks: List of IDs to update - Let's call get_ids to get list of
                 ids with expression
 
         Returns:
@@ -863,16 +874,12 @@ class Milvus(VectorStore):
         """
         from pymilvus import MilvusException
 
-        if self.col is None:
-            logger.debug("No existing collection to delete entities.")
-            return None
-
-        if isinstance(ids, Sized) and len(ids) == 0:
+        if len(ids) == 0:
             return False
 
         expr = f"pk in {ids}"
         try:
-            self.col.delete(expr=expr, **kwargs)
+            self.col.delete(expr=expr)
             return True
         except MilvusException as exc:
             logger.error(
@@ -880,12 +887,11 @@ class Milvus(VectorStore):
             )
             raise exc
 
-    def upsert(
-        self,
-        documents: List[Document],
-        ids: Optional[List[str]] = None,
-        **kwargs: Any,
-    ) -> List[str] | None:
+    def upsert(self,
+               ids: Optional[List[str]] = None,
+               documents: List[Document] | None = None,
+               **kwargs: Any
+        ) -> List[str] | None:
         """Update/Insert documents to the vectorstore.
 
         Args:
@@ -898,16 +904,15 @@ class Milvus(VectorStore):
 
         from pymilvus import MilvusException
 
-        if isinstance(documents, Sized) and len(documents) == 0:
+        if len(documents) == 0:
             logger.debug("No documents to upsert.")
             return None
 
-        if isinstance(ids, Sized) and len(ids):
+        if len(ids):
             try:
-                self.delete(ids=ids, **kwargs)
+                self.delete(ids=ids)
             except MilvusException:
                 pass
-
         try:
             return self.add_documents(documents=documents)
         except MilvusException as exc:
