@@ -826,3 +826,97 @@ class Milvus(VectorStore):
         )
         vector_db.add_texts(texts=texts, metadatas=metadatas)
         return vector_db
+
+    def get_ids(self,
+                expr: str = None,
+                **kwargs: Any
+        ) -> List[int] | None:
+        """ Get ids (primary keys) with expression
+
+        Args:
+            expr: Expression - E.g: "id in [1, 2]", or "title LIKE 'Abc%'"
+
+        Returns:
+            List[int]: List of IDs (Primary Keys)
+        """
+
+        from pymilvus import MilvusException
+
+        if self.col is None:
+            logger.debug("No existing collection to get pk.")
+            return False
+
+        try:
+            query_result = self.col.query(
+                    expr=expr,
+                    output_fields=["pk"]
+                )
+        except MilvusException as exc:
+            logger.error(
+                "Failed to get ids: %s error: %s", self.collection_name, exc
+            )
+            raise exc
+        ids = [item.get("pk") for item in query_result]
+        return ids
+
+    def delete(self,
+               ids: Optional[List[str]] = None,
+               **kwargs: Any
+        ) -> bool | None:
+        """Delete entities from the vectorstore.
+
+        Args:
+            pks: List of IDs to update - Let's call get_ids to get list of
+                ids with expression
+
+        Returns:
+            bool: True if success else False.
+        """
+        from pymilvus import MilvusException
+
+        if len(ids) == 0:
+            return False
+
+        expr = f"pk in {ids}"
+        try:
+            self.col.delete(expr=expr)
+            return True
+        except MilvusException as exc:
+            logger.error(
+                "Failed to delete entities: %s error: %s", self.collection_name, exc
+            )
+            raise exc
+
+    def upsert(self,
+               ids: Optional[List[str]] = None,
+               documents: List[Document] | None = None,
+               **kwargs: Any
+        ) -> List[str] | None:
+        """Update/Insert documents to the vectorstore.
+
+        Args:
+            ids: IDs to update - Let's call get_ids to get ids with expression \n
+            documents (List[Document]): Documents to add to the vectorstore.
+
+        Returns:
+            List[str]: IDs of the added texts.
+        """
+
+        from pymilvus import MilvusException
+
+        if len(documents) == 0:
+            logger.debug("No documents to upsert.")
+            return None
+
+        if len(ids):
+            try:
+                self.delete(ids=ids)
+            except MilvusException:
+                pass
+        try:
+            return self.add_documents(documents=documents)
+        except MilvusException as exc:
+            logger.error(
+                "Failed to upsert entities: %s error: %s", self.collection_name, exc
+            )
+            raise exc
