@@ -866,7 +866,7 @@ class Milvus(VectorStore):
         """Delete entities from the vectorstore.
 
         Args:
-            pks: List of IDs to update - Let's call get_ids to get list of
+            ids: List of IDs to update - Let's call get_ids to get list of
                 ids with expression
 
         Returns:
