@@ -849,7 +849,8 @@ class Milvus(VectorStore):
         try:
             query_result = self.col.query(
                     expr=expr,
-                    output_fields=["pk"]
+                    output_fields=["pk"],
+                    **kwargs
                 )
         except MilvusException as exc:
             logger.error(
@@ -879,7 +880,10 @@ class Milvus(VectorStore):
 
         expr = f"pk in {ids}"
         try:
-            self.col.delete(expr=expr)
+            self.col.delete(
+                expr=expr,
+                **kwargs
+            )
             return True
         except MilvusException as exc:
             logger.error(
@@ -910,7 +914,7 @@ class Milvus(VectorStore):
 
         if len(ids):
             try:
-                self.delete(ids=ids)
+                self.delete(ids=ids, **kwargs)
             except MilvusException:
                 pass
         try:
